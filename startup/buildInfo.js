@@ -13,6 +13,7 @@ const { certBundle1 } = require("@adaptable/utils");
  * @typedef {object} BuildInfo
  * @property {BuildConfig} config
  * @property {Record<string, string | undefined>} env
+ * @property {Record<string, unknown>} extraBuildProps
  */
 
 // IMPORTANT: Update config.schema.json when the buildpack/nixpacks image changes
@@ -105,7 +106,17 @@ function paketoBuilder(appConfig, tags) {
         ];
     }
 
-    return { config, env };
+    if (appConfig.projectPath != null
+        && appConfig.repoSubdir != null
+        && appConfig.projectPath !== appConfig.repoSubdir) {
+        throw new Error("If both projectPath and repoSubdir are specified, they must be the same");
+    }
+
+    return {
+        config,
+        env,
+        extraBuildProps: {},
+    };
 }
 
 /**
@@ -120,7 +131,13 @@ function dockerfileBuilder(appConfig, tags) {
     };
     if (appConfig.dockerfile) config.dockerfile = appConfig.dockerfile;
 
-    return { config, env: {} };
+    return {
+        config,
+        env: {},
+        extraBuildProps: {
+            ...(appConfig.repoSubdir ? { subdir: appConfig.repoSubdir } : {}),
+        },
+    };
 }
 
 /**
@@ -200,6 +217,17 @@ function nixpacksBuilder(appConfig, tags) {
         };
     }
 
+    let subdir;
+    if (appConfig.projectPath != null
+        || appConfig.repoSubdir != null) {
+        if (appConfig.projectPath != null
+            && appConfig.repoSubdir != null
+            && appConfig.projectPath !== appConfig.repoSubdir) {
+            throw new Error("If both projectPath and repoSubdir are specified, they must be the same");
+        }
+        subdir = appConfig.repoSubdir ?? appConfig.projectPath;
+    }
+
     return {
         config: {
             type: "nixpacks",
@@ -207,6 +235,7 @@ function nixpacksBuilder(appConfig, tags) {
             plan,
         },
         env: {},
+        extraBuildProps: { ...(subdir != null ? { subdir } : {}) },
     };
 }
 
@@ -272,7 +301,7 @@ function makeBuildProps() {
     const builder = builders[builderType];
     if (!builder) throw new Error(`Internal error: no builder for '${builderType}'`);
 
-    const { config, env } = builder(appConfig, tags);
+    const { config, env, extraBuildProps } = builder(appConfig, tags);
 
     /** @type {CreateBuild} */
     const imageBuildProps = {
@@ -286,9 +315,8 @@ function makeBuildProps() {
         imageName: "appimage",
         plan: "hobby",
         revId,
+        ...extraBuildProps,
     };
-
-    if (appConfig.repoSubdir) imageBuildProps.subdir = appConfig.repoSubdir;
 
     return imageBuildProps;
 }

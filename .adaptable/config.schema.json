@@ -111,7 +111,7 @@
             "tags": ["nodejs"]
         },
         "nodeVersion": {
-            "enum": ["12", "14", "16", "18"],
+            "enum": ["12", "14", "16", "18", "20"],
             "tags": ["nodejs"]
         },
         "projectPath": {

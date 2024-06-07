@@ -102,7 +102,7 @@ export function DomainsFromConfig(
                         key={d.domainName}
                         appId={appId}
                         name={d.name ?? makeDomainName(d.domainName)}
-                        domainName={d.domainName}
+                        domainName={d.domainName.toLowerCase()}
                         lbId={lbId}
                     />
                 );
